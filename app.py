@@ -1,17 +1,19 @@
-from flask import Flask, render_template, request, jsonify, session
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from functools import wraps
 from dotenv import load_dotenv
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import httpx
 import base64
 import hashlib
+import secrets
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # Supabase 설정
 SUPABASE_URL = os.getenv('SUPABASE_URL')
@@ -26,10 +28,21 @@ client = httpx.Client(
     }
 )
 
-# Login manager 설정
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+def get_current_user():
+    if 'user_id' not in session:
+        return None
+    response = client.get(f"/rest/v1/users", params={"id": f"eq.{session['user_id']}", "select": "*"})
+    if response.status_code == 200 and response.json():
+        return response.json()[0]
+    return None
 
 def hash_password(password):
     """해시 함수로 비밀번호를 안전하게 저장"""
@@ -58,19 +71,6 @@ def verify_password(stored_password, provided_password):
     except:
         return False
 
-class User(UserMixin):
-    def __init__(self, user_data):
-        self.id = user_data['id']
-        self.email = user_data['email']
-        self.character_id = user_data.get('character_id')
-
-@login_manager.user_loader
-def load_user(user_id):
-    response = client.get(f"/rest/v1/users", params={"id": f"eq.{user_id}", "select": "*"})
-    if response.status_code == 200 and response.json():
-        return User(response.json()[0])
-    return None
-
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -82,6 +82,15 @@ def register():
     password = data.get('password')
     
     try:
+        # 이메일 중복 체크
+        existing_user = client.get(
+            f"/rest/v1/users",
+            params={"email": f"eq.{email}", "select": "id"}
+        ).json()
+        
+        if existing_user:
+            return jsonify({'error': 'Email already exists'}), 400
+        
         # 비밀번호 해시
         hashed_password = hash_password(password)
         
@@ -130,6 +139,10 @@ def register():
         if update_response.status_code != 200:
             return jsonify({'error': 'Failed to update user'}), 400
         
+        # 세션 생성
+        session['user_id'] = user_id
+        session.permanent = True
+        
         return jsonify({'success': True}), 200
         
     except Exception as e:
@@ -161,8 +174,10 @@ def login():
         if not verify_password(user['password_hash'], password):
             return jsonify({'error': 'Invalid credentials'}), 401
             
-        # 로그인
-        login_user(User(user))
+        # 세션 생성
+        session['user_id'] = user['id']
+        session.permanent = True
+        
         return jsonify({'success': True}), 200
         
     except Exception as e:
@@ -171,7 +186,7 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
-    logout_user()
+    session.clear()
     return jsonify({'success': True}), 200
 
 @app.route('/character')
@@ -180,7 +195,7 @@ def get_character():
     try:
         response = client.get(
             f"/rest/v1/characters",
-            params={"user_id": f"eq.{current_user.id}", "select": "*"}
+            params={"user_id": f"eq.{session['user_id']}", "select": "*"}
         )
         
         if response.status_code != 200:
@@ -205,7 +220,7 @@ def battle():
     try:
         response = client.get(
             f"/rest/v1/characters",
-            params={"user_id": f"eq.{current_user.id}", "select": "*"}
+            params={"user_id": f"eq.{session['user_id']}", "select": "*"}
         )
         
         if response.status_code != 200:
