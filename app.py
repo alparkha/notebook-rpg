@@ -5,6 +5,8 @@ import os
 import json
 from datetime import datetime
 import httpx
+import base64
+import hashlib
 
 load_dotenv()
 
@@ -28,6 +30,33 @@ client = httpx.Client(
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+def hash_password(password):
+    """해시 함수로 비밀번호를 안전하게 저장"""
+    salt = os.urandom(32)
+    key = hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt,
+        100000
+    )
+    return base64.b64encode(salt + key).decode('utf-8')
+
+def verify_password(stored_password, provided_password):
+    """저장된 해시와 제공된 비밀번호를 비교"""
+    try:
+        decoded = base64.b64decode(stored_password.encode('utf-8'))
+        salt = decoded[:32]
+        stored_key = decoded[32:]
+        new_key = hashlib.pbkdf2_hmac(
+            'sha256',
+            provided_password.encode('utf-8'),
+            salt,
+            100000
+        )
+        return stored_key == new_key
+    except:
+        return False
 
 class User(UserMixin):
     def __init__(self, user_data):
@@ -53,17 +82,23 @@ def register():
     password = data.get('password')
     
     try:
-        # 사용자 등록
-        auth_response = client.post(
-            "/auth/v1/signup",
-            json={"email": email, "password": password}
+        # 비밀번호 해시
+        hashed_password = hash_password(password)
+        
+        # 사용자 생성
+        user_response = client.post(
+            "/rest/v1/users",
+            json={
+                "email": email,
+                "password_hash": hashed_password
+            }
         )
-        auth_data = auth_response.json()
         
-        if auth_response.status_code != 200:
-            return jsonify({'error': auth_data.get('msg', 'Registration failed')}), 400
-        
-        user_id = auth_data['user']['id']
+        if user_response.status_code != 201:
+            return jsonify({'error': 'Registration failed'}), 400
+            
+        user_data = user_response.json()[0]
+        user_id = user_data['id']
         
         # 캐릭터 생성
         character_response = client.post(
@@ -107,32 +142,27 @@ def login():
     password = data.get('password')
     
     try:
-        # 로그인
-        auth_response = client.post(
-            "/auth/v1/token",
-            params={"grant_type": "password"},
-            json={"email": email, "password": password}
-        )
-        
-        if auth_response.status_code != 200:
-            return jsonify({'error': 'Invalid credentials'}), 401
-            
-        auth_data = auth_response.json()
-        user_id = auth_data['user']['id']
-        
         # 사용자 정보 가져오기
         user_response = client.get(
             f"/rest/v1/users",
-            params={"id": f"eq.{user_id}", "select": "*"}
+            params={"email": f"eq.{email}", "select": "*"}
         )
         
         if user_response.status_code != 200:
             return jsonify({'error': 'Failed to get user data'}), 400
             
-        user_data = user_response.json()[0]
-        user = User(user_data)
-        login_user(user)
+        user_data = user_response.json()
+        if not user_data:
+            return jsonify({'error': 'User not found'}), 404
+            
+        user = user_data[0]
         
+        # 비밀번호 검증
+        if not verify_password(user['password_hash'], password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+            
+        # 로그인
+        login_user(User(user))
         return jsonify({'success': True}), 200
         
     except Exception as e:
@@ -159,6 +189,7 @@ def get_character():
         character_data = response.json()
         if character_data:
             return jsonify(character_data[0]), 200
+            
         return jsonify({'error': 'Character not found'}), 404
         
     except Exception as e:
