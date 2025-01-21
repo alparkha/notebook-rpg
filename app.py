@@ -4,9 +4,7 @@ from dotenv import load_dotenv
 import os
 import json
 from datetime import datetime
-import requests
-from gotrue import Client as GoTrueClient
-from postgrest import Client as PostgrestClient
+import httpx
 
 load_dotenv()
 
@@ -14,21 +12,15 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
 # Supabase 설정
-supabase_url = os.getenv('SUPABASE_URL')
-supabase_key = os.getenv('SUPABASE_KEY')
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
-# Auth 클라이언트 설정
-auth = GoTrueClient(
-    url=f"{supabase_url}/auth/v1",
-    headers={"apikey": supabase_key}
-)
-
-# Database 클라이언트 설정
-db = PostgrestClient(
-    base_url=f"{supabase_url}/rest/v1",
+# HTTP 클라이언트 설정
+client = httpx.Client(
+    base_url=SUPABASE_URL,
     headers={
-        "apikey": supabase_key,
-        "Authorization": f"Bearer {supabase_key}"
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
     }
 )
 
@@ -45,10 +37,10 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    response = db.from_('users').select('*').eq('id', user_id).execute()
-    if not response.data:
-        return None
-    return User(response.data[0])
+    response = client.get(f"/rest/v1/users", params={"id": f"eq.{user_id}", "select": "*"})
+    if response.status_code == 200 and response.json():
+        return User(response.json()[0])
+    return None
 
 @app.route('/')
 def home():
@@ -62,29 +54,49 @@ def register():
     
     try:
         # 사용자 등록
-        auth_response = auth.sign_up({
-            "email": email,
-            "password": password
-        })
+        auth_response = client.post(
+            "/auth/v1/signup",
+            json={"email": email, "password": password}
+        )
+        auth_data = auth_response.json()
+        
+        if auth_response.status_code != 200:
+            return jsonify({'error': auth_data.get('msg', 'Registration failed')}), 400
+        
+        user_id = auth_data['user']['id']
         
         # 캐릭터 생성
-        character = db.from_('characters').insert({
-            'user_id': auth_response.user.id,
-            'level': 1,
-            'exp': 0,
-            'hp': 100,
-            'attack': 10,
-            'defense': 5,
-            'gold': 0,
-            'fatigue': 0
-        }).execute()
+        character_response = client.post(
+            "/rest/v1/characters",
+            json={
+                'user_id': user_id,
+                'level': 1,
+                'exp': 0,
+                'hp': 100,
+                'attack': 10,
+                'defense': 5,
+                'gold': 0,
+                'fatigue': 0
+            }
+        )
+        
+        if character_response.status_code != 201:
+            return jsonify({'error': 'Failed to create character'}), 400
+            
+        character_data = character_response.json()[0]
         
         # 사용자 정보 업데이트
-        db.from_('users').update({
-            'character_id': character.data[0]['id']
-        }).eq('id', auth_response.user.id).execute()
+        update_response = client.patch(
+            f"/rest/v1/users",
+            params={"id": f"eq.{user_id}"},
+            json={'character_id': character_data['id']}
+        )
+        
+        if update_response.status_code != 200:
+            return jsonify({'error': 'Failed to update user'}), 400
         
         return jsonify({'success': True}), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -95,17 +107,34 @@ def login():
     password = data.get('password')
     
     try:
-        auth_response = auth.sign_in({
-            "email": email,
-            "password": password
-        })
+        # 로그인
+        auth_response = client.post(
+            "/auth/v1/token",
+            params={"grant_type": "password"},
+            json={"email": email, "password": password}
+        )
         
-        user_data = db.from_('users').select('*').eq('id', auth_response.user.id).execute()
-        if user_data.data:
-            user = User(user_data.data[0])
-            login_user(user)
-            return jsonify({'success': True}), 200
-        return jsonify({'error': 'User not found'}), 404
+        if auth_response.status_code != 200:
+            return jsonify({'error': 'Invalid credentials'}), 401
+            
+        auth_data = auth_response.json()
+        user_id = auth_data['user']['id']
+        
+        # 사용자 정보 가져오기
+        user_response = client.get(
+            f"/rest/v1/users",
+            params={"id": f"eq.{user_id}", "select": "*"}
+        )
+        
+        if user_response.status_code != 200:
+            return jsonify({'error': 'Failed to get user data'}), 400
+            
+        user_data = user_response.json()[0]
+        user = User(user_data)
+        login_user(user)
+        
+        return jsonify({'success': True}), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -119,10 +148,19 @@ def logout():
 @login_required
 def get_character():
     try:
-        character = db.from_('characters').select('*').eq('user_id', current_user.id).execute()
-        if character.data:
-            return jsonify(character.data[0]), 200
+        response = client.get(
+            f"/rest/v1/characters",
+            params={"user_id": f"eq.{current_user.id}", "select": "*"}
+        )
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to get character data'}), 400
+            
+        character_data = response.json()
+        if character_data:
+            return jsonify(character_data[0]), 200
         return jsonify({'error': 'Character not found'}), 404
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
@@ -134,9 +172,16 @@ def battle():
     player_choice = data.get('choice')
     
     try:
-        character = db.from_('characters').select('*').eq('user_id', current_user.id).single().execute()
+        response = client.get(
+            f"/rest/v1/characters",
+            params={"user_id": f"eq.{current_user.id}", "select": "*"}
+        )
         
-        if not character.data:
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to get character data'}), 400
+            
+        character_data = response.json()
+        if not character_data:
             return jsonify({'error': 'Character not found'}), 404
             
         # 전투 로직 구현
@@ -150,6 +195,7 @@ def battle():
                 'gold': 50
             }
         }), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
