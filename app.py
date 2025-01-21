@@ -1,10 +1,12 @@
 from flask import Flask, render_template, request, jsonify, session
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from dotenv import load_dotenv
-from supabase import create_client, Client
 import os
 import json
 from datetime import datetime
+import requests
+from gotrue import Client as GoTrueClient
+from postgrest import Client as PostgrestClient
 
 load_dotenv()
 
@@ -12,9 +14,22 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
 # Supabase 설정
-supabase: Client = create_client(
-    os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY')
+supabase_url = os.getenv('SUPABASE_URL')
+supabase_key = os.getenv('SUPABASE_KEY')
+
+# Auth 클라이언트 설정
+auth = GoTrueClient(
+    url=f"{supabase_url}/auth/v1",
+    headers={"apikey": supabase_key}
+)
+
+# Database 클라이언트 설정
+db = PostgrestClient(
+    base_url=f"{supabase_url}/rest/v1",
+    headers={
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}"
+    }
 )
 
 # Login manager 설정
@@ -30,10 +45,10 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    user_data = supabase.table('users').select('*').eq('id', user_id).execute()
-    if not user_data.data:
+    response = db.from_('users').select('*').eq('id', user_id).execute()
+    if not response.data:
         return None
-    return User(user_data.data[0])
+    return User(response.data[0])
 
 @app.route('/')
 def home():
@@ -47,13 +62,13 @@ def register():
     
     try:
         # 사용자 등록
-        auth_response = supabase.auth.sign_up({
+        auth_response = auth.sign_up({
             "email": email,
             "password": password
         })
         
         # 캐릭터 생성
-        character = supabase.table('characters').insert({
+        character = db.from_('characters').insert({
             'user_id': auth_response.user.id,
             'level': 1,
             'exp': 0,
@@ -65,7 +80,7 @@ def register():
         }).execute()
         
         # 사용자 정보 업데이트
-        supabase.table('users').update({
+        db.from_('users').update({
             'character_id': character.data[0]['id']
         }).eq('id', auth_response.user.id).execute()
         
@@ -80,12 +95,12 @@ def login():
     password = data.get('password')
     
     try:
-        auth_response = supabase.auth.sign_in_with_password({
+        auth_response = auth.sign_in({
             "email": email,
             "password": password
         })
         
-        user_data = supabase.table('users').select('*').eq('id', auth_response.user.id).execute()
+        user_data = db.from_('users').select('*').eq('id', auth_response.user.id).execute()
         if user_data.data:
             user = User(user_data.data[0])
             login_user(user)
@@ -104,7 +119,7 @@ def logout():
 @login_required
 def get_character():
     try:
-        character = supabase.table('characters').select('*').eq('user_id', current_user.id).execute()
+        character = db.from_('characters').select('*').eq('user_id', current_user.id).execute()
         if character.data:
             return jsonify(character.data[0]), 200
         return jsonify({'error': 'Character not found'}), 404
@@ -119,7 +134,7 @@ def battle():
     player_choice = data.get('choice')
     
     try:
-        character = supabase.table('characters').select('*').eq('user_id', current_user.id).single().execute()
+        character = db.from_('characters').select('*').eq('user_id', current_user.id).single().execute()
         
         if not character.data:
             return jsonify({'error': 'Character not found'}), 404
