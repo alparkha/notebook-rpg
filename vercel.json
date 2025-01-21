@@ -7,7 +7,7 @@
             "config": {
                 "maxLambdaSize": "15mb",
                 "runtime": "python3.8",
-                "buildCommand": "pip install -r requirements.txt"
+                "buildCommand": "pip install --no-deps -r requirements.txt"
             }
         }
     ],
