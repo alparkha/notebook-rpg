@@ -1,0 +1,290 @@
+.game-container {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #000;
+    color: #fff;
+}
+
+.character-stats {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    color: #fff;
+}
+
+.stat-item {
+    margin: 10px 0;
+    font-size: 1.1em;
+    color: #fff;
+}
+
+.game-area {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    color: #fff;
+}
+
+.battle-zone {
+    height: 300px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border: 2px dashed #fff;
+    border-radius: 10px;
+}
+
+.player-character, .monster {
+    width: 50px;
+    height: 50px;
+    position: relative;
+    margin: 20px;
+}
+
+/* 졸라맨 스타일의 플레이어 캐릭터 */
+.player-character {
+    background: transparent;
+}
+
+.player-character::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    top: 0;
+    left: 15px;
+}
+
+.player-character::after {
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 25px;
+    background: #fff;
+    top: 18px;
+    left: 5px;
+    border-radius: 5px;
+}
+
+/* 몬스터 기본 스타일 (흑백) */
+.monster {
+    background: transparent;
+    transform: scale(1);
+    transition: transform 0.3s;
+}
+
+.monster::before {
+    content: '';
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: #000;
+    top: 5px;
+    left: 10px;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.monster::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border: 2px solid #000;
+    border-radius: 50%;
+    top: 15px;
+    left: 20px;
+    box-shadow: -12px 0 0 #fff, -12px 0 0 2px #000;
+}
+
+/* 몬스터 등급별 스타일 */
+.monster.grade-normal {
+    filter: grayscale(100%);
+}
+
+.monster.grade-rare {
+    filter: none;
+}
+
+.monster.grade-rare::before {
+    background: #4a90e2;
+}
+
+.monster.grade-epic::before {
+    background: #9b59b6;
+    box-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
+}
+
+.monster.grade-legendary::before {
+    background: linear-gradient(45deg, #f1c40f, #e74c3c);
+    box-shadow: 0 0 15px rgba(241, 196, 15, 0.7);
+}
+
+/* 아이템 등급 스타일 */
+.item {
+    position: relative;
+    border: 2px solid #000;
+    padding: 5px;
+    margin: 5px;
+    background: #fff;
+    transition: all 0.3s ease;
+}
+
+.item.grade-normal {
+    filter: grayscale(100%);
+}
+
+.item.grade-rare {
+    border-color: #4a90e2;
+    color: #4a90e2;
+}
+
+.item.grade-epic {
+    border-color: #9b59b6;
+    color: #9b59b6;
+    box-shadow: 0 0 5px rgba(155, 89, 182, 0.3);
+}
+
+.item.grade-legendary {
+    border-color: #f1c40f;
+    color: #e74c3c;
+    box-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+    background: linear-gradient(45deg, rgba(241, 196, 15, 0.1), rgba(231, 76, 60, 0.1));
+}
+
+/* 전투 애니메이션 */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.battle-shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+.battle-controls {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.battle-btn {
+    padding: 10px 20px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 5px;
+    background-color: #4a90e2;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.battle-btn:hover {
+    transform: scale(1.05);
+    background-color: #357abd;
+}
+
+/* 트릭스터 스타일의 귀여운 효과 */
+.level-up-effect {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #000;
+    text-shadow: 2px 2px 0 #fff;
+    animation: bounceUp 2s ease-out;
+    pointer-events: none;
+}
+
+@keyframes bounceUp {
+    0% { transform: translateX(-50%) translateY(0); opacity: 1; }
+    50% { transform: translateX(-50%) translateY(-20px); opacity: 1; }
+    100% { transform: translateX(-50%) translateY(-40px); opacity: 0; }
+}
+
+/* 아이템 드롭 효과 */
+.item-drop {
+    position: absolute;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    animation: dropBounce 1s ease-out;
+    z-index: 100;
+}
+
+@keyframes dropBounce {
+    0% { transform: translateY(-20px); opacity: 0; }
+    50% { transform: translateY(5px); opacity: 1; }
+    75% { transform: translateY(-3px); opacity: 1; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+/* 몬스터 피격 효과 */
+.monster.hit {
+    animation: monsterHit 0.3s ease-out;
+}
+
+@keyframes monsterHit {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); filter: brightness(1.5); }
+    100% { transform: scale(1); }
+}
+
+/* 플레이어 공격 효과 */
+.player-character.attack {
+    animation: playerAttack 0.5s ease-out;
+}
+
+@keyframes playerAttack {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    50% { transform: translateX(5px) rotate(5deg); }
+    100% { transform: translateX(0) rotate(0deg); }
+}
+
+/* 광고 공간 */
+.ad-space {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 160px;
+    height: 600px;
+    background: rgba(255, 255, 255, 0.1);
+    border-left: 2px dashed #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.8em;
+    color: #fff;
+}
+
+.ad-space-top {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 728px;
+    height: 90px;
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 2px dashed #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.8em;
+    color: #fff;
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공책 RPG - 게임</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/game.css') }}">
+</head>
+<body class="notebook-background">
+    <div class="game-container">
+        <div class="character-stats">
+            <h2>캐릭터 정보</h2>
+            <div class="stat-item">레벨: <span id="level">1</span></div>
+            <div class="stat-item">경험치: <span id="exp">0</span></div>
+            <div class="stat-item">체력: <span id="hp">100</span></div>
+            <div class="stat-item">공격력: <span id="attack">10</span></div>
+            <div class="stat-item">방어력: <span id="defense">5</span></div>
+            <div class="stat-item">골드: <span id="gold">0</span></div>
+        </div>
+        
+        <div class="game-area">
+            <div class="battle-zone">
+                <div class="player-character"></div>
+                <div class="monster"></div>
+            </div>
+            
+            <div class="battle-controls">
+                <button id="rock" class="battle-btn">가위</button>
+                <button id="paper" class="battle-btn">바위</button>
+                <button id="scissors" class="battle-btn">보</button>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body>
+</html>

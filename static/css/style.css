@@ -1,0 +1,56 @@
+/* 공책 스타일 배경 */
+.notebook-background {
+    background-color: #f5f5f5;
+    background-image: 
+        linear-gradient(90deg, transparent 79px, #abced4 79px, #abced4 81px, transparent 81px),
+        linear-gradient(#eee .1em, transparent .1em);
+    background-size: 100% 1.2em;
+    padding: 20px;
+    font-family: 'Nanum Pen Script', cursive;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.title {
+    font-size: 3em;
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 40px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.login-btn {
+    padding: 12px 24px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    width: 200px;
+}
+
+.login-btn:hover {
+    transform: scale(1.05);
+}
+
+.google-login {
+    background-color: #fff;
+    color: #757575;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.naver-login {
+    background-color: #03C75A;
+    color: white;
+}

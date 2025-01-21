@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공책 RPG</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="notebook-background">
+    <div class="container">
+        <h1 class="title">공책 RPG</h1>
+        <div class="login-container">
+            <button class="login-btn google-login">
+                Google로 로그인
+            </button>
+            <button class="login-btn naver-login">
+                Naver로 로그인
+            </button>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+</body>
+</html>

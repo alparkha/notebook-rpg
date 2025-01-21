@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공책 RPG - 인트로</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/intro.css') }}">
+</head>
+<body class="notebook-background">
+    <div class="intro-container">
+        <div class="student">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm"></div>
+            <div class="pencil"></div>
+        </div>
+        
+        <div class="notebook">
+            <div class="drawing-area">
+                <div class="game-title">공책 RPG</div>
+                <div class="drawing-effect"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                window.location.href = '/game';
+            }, 5000); // 5초 후 게임 화면으로 전환
+        });
+    </script>
+</body>
+</html>
