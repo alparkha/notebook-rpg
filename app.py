@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 import json
 from datetime import datetime, timedelta
-import httpx
+import requests
 import base64
 import hashlib
 import secrets
@@ -19,14 +19,13 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
-# HTTP 클라이언트 설정
-client = httpx.Client(
-    base_url=SUPABASE_URL,
-    headers={
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}"
-    }
-)
+# HTTP 헤더 설정
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
 
 def login_required(f):
     @wraps(f)
@@ -39,7 +38,11 @@ def login_required(f):
 def get_current_user():
     if 'user_id' not in session:
         return None
-    response = client.get(f"/rest/v1/users", params={"id": f"eq.{session['user_id']}", "select": "*"})
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/users",
+        params={"id": f"eq.{session['user_id']}", "select": "*"},
+        headers=HEADERS
+    )
     if response.status_code == 200 and response.json():
         return response.json()[0]
     return None
@@ -83,9 +86,10 @@ def register():
     
     try:
         # 이메일 중복 체크
-        existing_user = client.get(
-            f"/rest/v1/users",
-            params={"email": f"eq.{email}", "select": "id"}
+        existing_user = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users",
+            params={"email": f"eq.{email}", "select": "id"},
+            headers=HEADERS
         ).json()
         
         if existing_user:
@@ -95,12 +99,13 @@ def register():
         hashed_password = hash_password(password)
         
         # 사용자 생성
-        user_response = client.post(
-            "/rest/v1/users",
+        user_response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/users",
             json={
                 "email": email,
                 "password_hash": hashed_password
-            }
+            },
+            headers=HEADERS
         )
         
         if user_response.status_code != 201:
@@ -110,8 +115,8 @@ def register():
         user_id = user_data['id']
         
         # 캐릭터 생성
-        character_response = client.post(
-            "/rest/v1/characters",
+        character_response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/characters",
             json={
                 'user_id': user_id,
                 'level': 1,
@@ -121,7 +126,8 @@ def register():
                 'defense': 5,
                 'gold': 0,
                 'fatigue': 0
-            }
+            },
+            headers=HEADERS
         )
         
         if character_response.status_code != 201:
@@ -130,10 +136,11 @@ def register():
         character_data = character_response.json()[0]
         
         # 사용자 정보 업데이트
-        update_response = client.patch(
-            f"/rest/v1/users",
+        update_response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/users",
             params={"id": f"eq.{user_id}"},
-            json={'character_id': character_data['id']}
+            json={'character_id': character_data['id']},
+            headers=HEADERS
         )
         
         if update_response.status_code != 200:
@@ -156,9 +163,10 @@ def login():
     
     try:
         # 사용자 정보 가져오기
-        user_response = client.get(
-            f"/rest/v1/users",
-            params={"email": f"eq.{email}", "select": "*"}
+        user_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/users",
+            params={"email": f"eq.{email}", "select": "*"},
+            headers=HEADERS
         )
         
         if user_response.status_code != 200:
@@ -193,9 +201,10 @@ def logout():
 @login_required
 def get_character():
     try:
-        response = client.get(
-            f"/rest/v1/characters",
-            params={"user_id": f"eq.{session['user_id']}", "select": "*"}
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/characters",
+            params={"user_id": f"eq.{session['user_id']}", "select": "*"},
+            headers=HEADERS
         )
         
         if response.status_code != 200:
@@ -218,9 +227,10 @@ def battle():
     player_choice = data.get('choice')
     
     try:
-        response = client.get(
-            f"/rest/v1/characters",
-            params={"user_id": f"eq.{session['user_id']}", "select": "*"}
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/characters",
+            params={"user_id": f"eq.{session['user_id']}", "select": "*"},
+            headers=HEADERS
         )
         
         if response.status_code != 200:
